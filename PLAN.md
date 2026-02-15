@@ -12,13 +12,16 @@ A Python CLI tool that provides a tmux-based "viewer" for git worktrees. It give
 ## Core Commands
 
 ```
-worktree-mux ls                # list all worktrees under .worktrees/, show tmux window status
+worktree-mux                   # show dashboard table (one-shot)
+worktree-mux ls                # hidden alias for bare command
 worktree-mux cd <name>         # create tmux window for a worktree in the repo session, switch to it
 worktree-mux cd                # switch to the 'main' window (repo root)
 worktree-mux dash              # live-updating dashboard of all worktrees
 ```
 
-Running `worktree-mux` with no subcommand is equivalent to `worktree-mux ls`.
+Running `worktree-mux` with no subcommand prints a one-shot dashboard table
+(branch, tmux status, modified files, divergence, last commit) sorted by
+most recent commit, with color and a current-worktree indicator.
 
 All commands are run from anywhere inside a git repo.
 
@@ -43,7 +46,7 @@ All commands are run from anywhere inside a git repo.
 | Auto-switch on open | Yes | `worktree-mux cd` creates window + switches in one step |
 | Auto-cleanup | Every command | Orphaned tmux windows closed before each command runs |
 | Main window | Always first | Session always has a 'main' window cd'd to repo root |
-| Default subcommand | `ls` | Running bare `worktree-mux` lists worktrees |
+| Default subcommand | dashboard table | Running bare `worktree-mux` prints one-shot dashboard |
 | `cd` no argument | Switches to main | `worktree-mux cd` goes to repo root window |
 | Dashboard divergence | `↑N ↓M` vs default branch | Uses `git rev-list --left-right --count` via merge-base |
 | Parent branch detection | Git merge-base | Three-dot rev-list syntax handles diverged branches |
@@ -55,20 +58,28 @@ All commands are run from anywhere inside a git repo.
 
 ## Detailed Command Specs
 
-### `worktree-mux ls`
+### `worktree-mux` (bare) / `worktree-mux ls`
 
-Lists worktrees discovered via `git worktree list`, shows whether a tmux window exists for each.
+Prints a one-shot dashboard table with branch name, tmux window status,
+modified file count, divergence from default branch, and last commit time.
+Rows are sorted by most recent commit. The current worktree (based on `$PWD`)
+is highlighted with a `▸` indicator. Output is colorized when stdout is a tty.
+
+`worktree-mux ls` is a hidden alias that behaves identically.
 
 ```
-$ worktree-mux ls
-Worktrees in prediction_market_arbitrage:
+$ worktree-mux
+worktree-mux — prediction_market_arbitrage
+────────────────────────────────────────────────────────────────
 
-  ● feature/auth                   .worktrees/feature/auth
-  ○ fix/parser-bug                 .worktrees/fix/parser-bug
-  ○ refactor-models                .worktrees/refactor-models
+    Branch              tmux  Modified   vs main   Last Commit
+    ──────────────────  ────  ────────   ───────   ─────────────────
+  ▸ feature/auth        ●     2 files    ↑3        12 minutes ago
+    fix/parser-bug      ○     clean      ↑1        2 hours ago
+    refactor-models     ○     3 files    ↑5 ↓2     35 minutes ago
 
-● = tmux window open    ○ = no tmux window
-Session: prediction_market_arbitrage (3 worktrees, 1 open)
+  ● = tmux window open    ○ = no tmux window    ▸ = current
+  Session: prediction_market_arbitrage (3 worktrees, 1 open)
 ```
 
 Source of truth: `git worktree list --porcelain` — filters out the main worktree, shows only `.worktrees/*` entries.

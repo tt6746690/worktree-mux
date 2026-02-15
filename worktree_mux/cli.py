@@ -127,9 +127,10 @@ dedicated tmux windows, organized in a per-repo tmux session.
 \b
 Intended workflow:
   1. Create worktrees with git (or let agents do it)
-  2. `worktree-mux cd <name>` to jump into any worktree
-  3. Use tmux `prefix + L` to toggle back to your main session
-  4. `worktree-mux dash` for a live overview of all worktrees
+  2. `worktree-mux` to see the status of all worktrees
+  3. `worktree-mux cd <name>` to jump into any worktree
+  4. Use tmux `prefix + L` to toggle back to your main session
+  5. `worktree-mux dash` for a live-updating overview
 
 \b
 worktree-mux is a VIEWER — it does not create, remove, or modify worktrees.
@@ -152,41 +153,23 @@ Tip: Create a short alias (add to ~/.zshrc):
 def main(ctx: click.Context) -> None:
     """worktree-mux — a tmux-based viewer for git worktrees."""
     if ctx.invoked_subcommand is None:
-        ctx.invoke(ls_cmd)
+        repo_root, session_name, worktrees = _get_context()
+        _sync_orphaned_windows(session_name, worktrees)
+
+        from worktree_mux.dashboard import print_status
+
+        print_status(repo_root, session_name)
 
 
-@main.command("ls")
+@main.command("ls", hidden=True)
 def ls_cmd() -> None:
-    """List worktrees and their tmux/git status.
-
-    \b
-    Shows all worktrees under .worktrees/ and whether each has
-    an open tmux window. Works both inside and outside tmux.
-
-    \b
-    Legend:
-      ● = tmux window open
-      ○ = no tmux window
-    """
+    """List worktrees and their status (alias for bare command)."""
     repo_root, session_name, worktrees = _get_context()
     _sync_orphaned_windows(session_name, worktrees)
 
-    open_windows = set(list_windows(session_name))
+    from worktree_mux.dashboard import print_status
 
-    if not worktrees:
-        click.echo("No worktrees found under .worktrees/")
-        click.echo("Create one with: git worktree add .worktrees/<name> -b <branch>")
-        return
-
-    click.echo(f"Worktrees in {repo_root.name}:\n")
-    for wt in worktrees:
-        marker = "●" if wt.leaf in open_windows else "○"
-        click.echo(f"  {marker} {wt.name:<30} {wt.path}")
-
-    open_count = sum(1 for wt in worktrees if wt.leaf in open_windows)
-    click.echo()
-    click.echo("● = tmux window open    ○ = no tmux window")
-    click.echo(f"Session: {session_name} ({len(worktrees)} worktrees, {open_count} open)")
+    print_status(repo_root, session_name)
 
 
 @main.command("cd")
@@ -221,6 +204,10 @@ def cd_cmd(name: str | None) -> None:
 
     # Ensure the repo session exists with a 'main' window at the repo root.
     _ensure_session_with_main(session_name, repo_root)
+
+    # Ensure the 'main' window exists (session may have been created outside worktree-mux).
+    if not window_exists(session_name, MAIN_WINDOW):
+        create_window(session_name, MAIN_WINDOW, str(repo_root))
 
     # No argument: switch to the main window.
     if name is None:

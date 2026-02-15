@@ -87,19 +87,26 @@ class WorktreeNotFoundError(Exception):
 
 
 def get_repo_root() -> Path:
-    """Get the root directory of the current git repository.
+    """Get the root directory of the main git repository.
+
+    Uses ``git rev-parse --git-common-dir`` so this works correctly
+    when called from inside a worktree (always returns the main repo
+    root, not the worktree root).
 
     Raises:
         GitError: If not inside a git repository.
     """
     result = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
+        ["git", "rev-parse", "--git-common-dir"],
         capture_output=True,
         text=True,
     )
     if result.returncode != 0:
         raise GitError("Not inside a git repository.")
-    return Path(result.stdout.strip())
+    git_common = Path(result.stdout.strip())
+    if not git_common.is_absolute():
+        git_common = Path.cwd() / git_common
+    return git_common.resolve().parent
 
 
 def get_default_branch(repo_root: Path) -> str:
@@ -273,3 +280,16 @@ def get_last_commit_time(worktree_path: Path) -> str:
     if result.returncode != 0:
         return "unknown"
     return result.stdout.strip()
+
+
+def get_last_commit_timestamp(worktree_path: Path) -> int:
+    """Get Unix timestamp of the last commit (for sorting)."""
+    result = subprocess.run(
+        ["git", "-C", str(worktree_path), "log", "-1", "--format=%ct"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return 0
+    text = result.stdout.strip()
+    return int(text) if text else 0

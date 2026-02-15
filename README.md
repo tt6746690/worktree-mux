@@ -35,17 +35,20 @@ git worktree add .worktrees/fix/parser-bug -b fix/parser-bug
 git worktree add .worktrees/refactor-models -b refactor-models
 ```
 
-2. **See all worktrees** and their tmux/git status with `worktree-mux ls` (or just `worktree-mux`)
+2. **See all worktrees** and their status with `worktree-mux` (or `worktree-mux ls`)
 
 ```
-Worktrees in my-repo:
+worktree-mux — my-repo
+────────────────────────────────────────────────────────────────
 
-  ○ feature/auth                   /path/to/feature/auth
-  ○ fix/parser-bug                 /path/to/fix/parser-bug
-  ○ refactor-models                /path/to/refactor-models
+    Branch              tmux  Modified   vs main   Last Commit
+    ──────────────────  ────  ────────   ───────   ─────────────────
+  ▸ feature/auth        ●     2 files    ↑3        12 minutes ago
+    fix/parser-bug      ○     clean      ↑1        2 hours ago
+    refactor-models     ○     3 files    ↑5 ↓2     35 minutes ago
 
-● = tmux window open    ○ = no tmux window
-Session: my-repo (3 worktrees, 0 open)
+  ● = tmux window open    ○ = no tmux window    ▸ = current
+  Session: my-repo (3 worktrees, 1 open)
 ```
 
 3. **Jump into a worktree**: creates a tmux window and switches to it with `worktree-mux cd`
@@ -59,19 +62,19 @@ worktree-mux cd                  # go to the main window (repo root)
 
 Return to your previous session: `prefix + s` and toggle
 
-4. **Live dashboard** of worktrees — shows branch status, divergence, modified files with `worktree-mux dash`
+4. **Live dashboard** of worktrees — auto-refreshing version of the status table with `worktree-mux dash`
 
 ```
-my-repo — worktree dashboard (refreshes every 5s)
+worktree-mux — my-repo (refreshes every 5s)
 ──────────────────────────────────────────────────────────────────────
 
-Branch              tmux  Modified   vs main   Last Commit
-──────────────────  ────  ────────   ───────   ─────────────────
-feature/auth        ●     2 files    ↑3        12 minutes ago
-fix/parser-bug      ○     clean      ↑1        2 hours ago
-refactor-models     ○     3 files    ↑5 ↓2     35 minutes ago
+    Branch              tmux  Modified   vs main   Last Commit
+    ──────────────────  ────  ────────   ───────   ─────────────────
+  ▸ feature/auth        ●     2 files    ↑3        12 minutes ago
+    fix/parser-bug      ○     clean      ↑1        2 hours ago
+    refactor-models     ○     3 files    ↑5 ↓2     35 minutes ago
 
-● = tmux window open    ○ = no tmux window
+  ● = tmux window open    ○ = no tmux window    ▸ = current
 ```
 
 5. **Cleanup**: worktree-mux automatically cleans up orphaned tmux windows (from removed worktrees) on every command. No manual close needed — just delete the worktree with `git worktree remove` and the window goes away.
