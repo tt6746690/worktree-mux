@@ -22,9 +22,6 @@ uv tool install worktree-mux/
 
 # (Optional) Short alias — add to ~/.zshrc
 alias wm='worktree-mux'
-
-# Shell completions — add to ~/.zshrc
-eval "$(_WORKTREE_MUX_COMPLETE=zsh_source worktree-mux)"
 ```
 
 ## Usage
