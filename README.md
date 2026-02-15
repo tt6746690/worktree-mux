@@ -38,7 +38,7 @@ git worktree add .worktrees/refactor-models -b refactor-models
 2. **See all worktrees** and their status with `worktree-mux` (or `worktree-mux ls`)
 
 ```
-worktree-mux — my-repo
+worktree-mux — my-repo (3 worktrees, 1 open)
 ────────────────────────────────────────────────────────────────
 
     Branch              tmux  Modified   vs main   Last Commit
@@ -48,7 +48,6 @@ worktree-mux — my-repo
     refactor-models     ○     3 files    ↑5 ↓2     35 minutes ago
 
   ● = tmux window open    ○ = no tmux window    ▸ = current
-  Session: my-repo (3 worktrees, 1 open)
 ```
 
 3. **Jump into a worktree**: creates a tmux window and switches to it with `worktree-mux cd`
@@ -65,7 +64,7 @@ Return to your previous session: `prefix + s` and toggle
 4. **Live dashboard** of worktrees — auto-refreshing version of the status table with `worktree-mux dash`
 
 ```
-worktree-mux — my-repo (refreshes every 5s)
+worktree-mux — my-repo (3 worktrees, 1 open, refreshes every 5s)
 ──────────────────────────────────────────────────────────────────────
 
     Branch              tmux  Modified   vs main   Last Commit
