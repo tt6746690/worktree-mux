@@ -1,0 +1,25 @@
+.worktrees/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+
+# IDE
+.idea/
+.vscode/
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Tools
+.mypy_cache/
+.ruff_cache/
