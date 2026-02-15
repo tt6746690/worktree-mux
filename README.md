@@ -35,7 +35,7 @@ git worktree add .worktrees/fix/parser-bug -b fix/parser-bug
 git worktree add .worktrees/refactor-models -b refactor-models
 ```
 
-2. **See all worktrees** and their tmux/git status with `worktree-mux list`
+2. **See all worktrees** and their tmux/git status with `worktree-mux ls` (or just `worktree-mux`)
 
 ```
 Worktrees in my-repo:
@@ -48,12 +48,13 @@ Worktrees in my-repo:
 Session: my-repo (3 worktrees, 0 open)
 ```
 
-3. **Jump into a worktree**: creates a tmux window and switches to it with `worktree-mux open`
+3. **Jump into a worktree**: creates a tmux window and switches to it with `worktree-mux cd`
 
 ```bash
-worktree-mux open auth             # (fuzzy) leaf name match
-worktree-mux open parser           # (fuzzy) substring match
-worktree-mux open feature/auth     # exact path match
+worktree-mux cd auth             # (fuzzy) leaf name match
+worktree-mux cd parser           # (fuzzy) substring match
+worktree-mux cd feature/auth     # exact path match
+worktree-mux cd                  # go to the main window (repo root)
 ```
 
 Return to your previous session: `prefix + s` and toggle
@@ -73,4 +74,4 @@ refactor-models     ○     3 files    ↑5 ↓2     35 minutes ago
 ● = tmux window open    ○ = no tmux window
 ```
 
-5. **Cleanup**: worktree-mux automatically cleans up orphaned tmux windows (from removed worktrees) on every command.
+5. **Cleanup**: worktree-mux automatically cleans up orphaned tmux windows (from removed worktrees) on every command. No manual close needed — just delete the worktree with `git worktree remove` and the window goes away.

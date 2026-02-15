@@ -1,11 +1,8 @@
 """worktree-mux CLI — tmux-based viewer for git worktrees.
 
-worktree-mux gives you quick terminal access to your git worktrees through
-dedicated tmux windows, organized in a per-repo tmux session.
-
 Intended workflow:
   1. Create worktrees with git (or let agents do it)
-  2. ``worktree-mux open <name>`` to jump into any worktree
+  2. ``worktree-mux cd <name>`` to jump into any worktree
   3. Use tmux ``prefix + L`` to toggle back to your main session
   4. ``worktree-mux dash`` for a live overview of all worktrees
 
@@ -60,6 +57,10 @@ def _get_context() -> tuple[Path, str, list[WorktreeInfo]]:
     return repo_root, session_name, worktrees
 
 
+# Name of the tmux window for the repo root (main worktree).
+MAIN_WINDOW = "main"
+
+
 def _sync_orphaned_windows(session_name: str, worktrees: list[WorktreeInfo]) -> None:
     """Close tmux windows whose worktrees no longer exist."""
     if not session_exists(session_name):
@@ -67,7 +68,7 @@ def _sync_orphaned_windows(session_name: str, worktrees: list[WorktreeInfo]) -> 
 
     open_windows = list_windows(session_name)
     worktree_leaves = {wt.leaf for wt in worktrees}
-    reserved = {"dash"}
+    reserved = {MAIN_WINDOW, "dash"}
 
     for window_name in open_windows:
         if window_name in reserved:
@@ -75,6 +76,12 @@ def _sync_orphaned_windows(session_name: str, worktrees: list[WorktreeInfo]) -> 
         if window_name not in worktree_leaves:
             click.echo(f"  Cleaned up orphaned window: {window_name}", err=True)
             kill_window(session_name, window_name)
+
+
+def _ensure_session_with_main(session_name: str, repo_root: Path) -> None:
+    """Ensure the repo tmux session exists with a 'main' window at repo root."""
+    if not session_exists(session_name):
+        create_session(session_name, MAIN_WINDOW, str(repo_root))
 
 
 def _handle_resolve_error(e: AmbiguousWorktreeError | WorktreeNotFoundError) -> None:
@@ -120,7 +127,7 @@ dedicated tmux windows, organized in a per-repo tmux session.
 \b
 Intended workflow:
   1. Create worktrees with git (or let agents do it)
-  2. `worktree-mux open <name>` to jump into any worktree
+  2. `worktree-mux cd <name>` to jump into any worktree
   3. Use tmux `prefix + L` to toggle back to your main session
   4. `worktree-mux dash` for a live overview of all worktrees
 
@@ -145,11 +152,11 @@ Tip: Create a short alias (add to ~/.zshrc):
 def main(ctx: click.Context) -> None:
     """worktree-mux — a tmux-based viewer for git worktrees."""
     if ctx.invoked_subcommand is None:
-        click.echo(ctx.get_help())
+        ctx.invoke(ls_cmd)
 
 
-@main.command("list")
-def list_cmd() -> None:
+@main.command("ls")
+def ls_cmd() -> None:
     """List worktrees and their tmux/git status.
 
     \b
@@ -182,20 +189,23 @@ def list_cmd() -> None:
     click.echo(f"Session: {session_name} ({len(worktrees)} worktrees, {open_count} open)")
 
 
-@main.command("open")
-@click.argument("name", shell_complete=_worktree_name_completion)
-def open_cmd(name: str) -> None:
-    """Open a tmux window for a worktree and switch to it.
+@main.command("cd")
+@click.argument("name", required=False, default=None, shell_complete=_worktree_name_completion)
+def cd_cmd(name: str | None) -> None:
+    """Switch to a worktree's tmux window (or the main window).
 
     \b
-    NAME is resolved using fuzzy matching:
+    If NAME is given, it is resolved using fuzzy matching:
       1. Exact path match (e.g., 'feature/auth')
       2. Leaf name match (e.g., 'auth')
       3. Substring match (e.g., 'au')
 
     \b
-    If the repo's tmux session doesn't exist, it is created.
-    If a window already exists, worktree-mux switches to it (idempotent).
+    If NAME is omitted, switches to the 'main' window (repo root).
+
+    \b
+    If the repo's tmux session doesn't exist, it is created with a
+    'main' window at the repo root first.
 
     \b
     To return to your previous session: tmux `prefix + L`
@@ -208,6 +218,15 @@ def open_cmd(name: str) -> None:
 
     repo_root, session_name, worktrees = _get_context()
     _sync_orphaned_windows(session_name, worktrees)
+
+    # Ensure the repo session exists with a 'main' window at the repo root.
+    _ensure_session_with_main(session_name, repo_root)
+
+    # No argument: switch to the main window.
+    if name is None:
+        click.echo(f"→ main (session: {session_name})")
+        switch_to_window(session_name, MAIN_WINDOW)
+        return
 
     if not worktrees:
         click.echo("No worktrees found under .worktrees/", err=True)
@@ -231,48 +250,11 @@ def open_cmd(name: str) -> None:
 
     window_name = wt.leaf
 
-    if not session_exists(session_name):
-        create_session(session_name, window_name, str(wt.path))
-    elif not window_exists(session_name, window_name):
+    if not window_exists(session_name, window_name):
         create_window(session_name, window_name, str(wt.path))
 
     click.echo(f"→ {wt.name} (session: {session_name})")
     switch_to_window(session_name, window_name)
-
-
-@main.command("close")
-@click.argument("name", shell_complete=_worktree_name_completion)
-def close_cmd(name: str) -> None:
-    """Close the tmux window for a worktree.
-
-    \b
-    Tip: You usually don't need this. worktree-mux automatically cleans
-    up orphaned windows (whose worktrees were removed) whenever
-    any worktree-mux command runs.
-
-    \b
-    Use `close` to manually dismiss a worktree window you're done
-    with. You can also close windows directly in tmux:
-      - Type `exit` in the shell
-      - Use `prefix + &`
-    """
-    repo_root, session_name, worktrees = _get_context()
-    _sync_orphaned_windows(session_name, worktrees)
-
-    try:
-        wt = resolve_worktree(name, worktrees)
-    except (AmbiguousWorktreeError, WorktreeNotFoundError) as e:
-        _handle_resolve_error(e)
-        return  # unreachable
-
-    window_name = wt.leaf
-
-    if not window_exists(session_name, window_name):
-        click.echo(f"No tmux window open for {wt.name}.")
-        return
-
-    kill_window(session_name, window_name)
-    click.echo(f"Closed window for {wt.name}.")
 
 
 @main.command("dash")
@@ -292,8 +274,8 @@ def dash_cmd() -> None:
 
     \b
     Tip: Run this in a dedicated tmux pane to keep it visible:
-      worktree-mux open <worktree>    # get into the repo session
-      prefix + "                      # split pane horizontally
+      worktree-mux cd <worktree>      # get into the repo session
+      prefix + \"                      # split pane horizontally
       worktree-mux dash               # dashboard in the new pane
     """
     repo_root, session_name, worktrees = _get_context()

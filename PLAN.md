@@ -12,11 +12,13 @@ A Python CLI tool that provides a tmux-based "viewer" for git worktrees. It give
 ## Core Commands
 
 ```
-worktree-mux list              # list all worktrees under .worktrees/, show tmux window status
-worktree-mux open <name>       # create tmux window for a worktree in the repo session, switch to it
-worktree-mux close <name>      # close tmux window for a worktree
+worktree-mux ls                # list all worktrees under .worktrees/, show tmux window status
+worktree-mux cd <name>         # create tmux window for a worktree in the repo session, switch to it
+worktree-mux cd                # switch to the 'main' window (repo root)
 worktree-mux dash              # live-updating dashboard of all worktrees
 ```
+
+Running `worktree-mux` with no subcommand is equivalent to `worktree-mux ls`.
 
 All commands are run from anywhere inside a git repo.
 
@@ -38,8 +40,11 @@ All commands are run from anywhere inside a git repo.
 | tmux window naming | Leaf name only | e.g., `auth` not `feature/auth`; error on collision |
 | Leaf collision | Error with guidance | Tell user to rename worktree dirs for unique leaves |
 | Session toggle | tmux native `prefix + L` | Use tmux built-in, no custom switch command |
-| Auto-switch on open | Yes | `worktree-mux open` creates window + switches in one step |
+| Auto-switch on open | Yes | `worktree-mux cd` creates window + switches in one step |
 | Auto-cleanup | Every command | Orphaned tmux windows closed before each command runs |
+| Main window | Always first | Session always has a 'main' window cd'd to repo root |
+| Default subcommand | `ls` | Running bare `worktree-mux` lists worktrees |
+| `cd` no argument | Switches to main | `worktree-mux cd` goes to repo root window |
 | Dashboard divergence | `↑N ↓M` vs default branch | Uses `git rev-list --left-right --count` via merge-base |
 | Parent branch detection | Git merge-base | Three-dot rev-list syntax handles diverged branches |
 | VS Code | None (deferred) | Agents manage their own windows |
@@ -50,12 +55,12 @@ All commands are run from anywhere inside a git repo.
 
 ## Detailed Command Specs
 
-### `worktree-mux list`
+### `worktree-mux ls`
 
 Lists worktrees discovered via `git worktree list`, shows whether a tmux window exists for each.
 
 ```
-$ worktree-mux list
+$ worktree-mux ls
 Worktrees in prediction_market_arbitrage:
 
   ● feature/auth                   .worktrees/feature/auth
@@ -68,26 +73,34 @@ Session: prediction_market_arbitrage (3 worktrees, 1 open)
 
 Source of truth: `git worktree list --porcelain` — filters out the main worktree, shows only `.worktrees/*` entries.
 
-### `worktree-mux open <name>`
+### `worktree-mux cd [<name>]`
 
+If `<name>` is given:
 1. Resolve `<name>` to a worktree path (exact match first, then fuzzy)
 2. Check for leaf name collisions (error if ambiguous)
-3. If the repo tmux session doesn't exist, create it
+3. If the repo tmux session doesn't exist, create it with a 'main' window at repo root
 4. If a window for this worktree already exists, switch to it (idempotent)
 5. Otherwise, create a new window named after the worktree leaf, `cd`'d to its path
 6. Auto-switch the tmux client to the repo session + that window
 
+If `<name>` is omitted, switch to the 'main' window (repo root).
+
 ```
-$ worktree-mux open auth
+$ worktree-mux cd auth
 # resolves "auth" → .worktrees/feature/auth
 # creates/switches to window "auth" in session "prediction_market_arbitrage"
 → feature/auth (session: prediction_market_arbitrage)
+
+$ worktree-mux cd
+# switches to the 'main' window at repo root
+→ main (session: prediction_market_arbitrage)
 ```
 
-### `worktree-mux close <name>`
+### Removed: `close`
 
-Kill the tmux window for the named worktree. No-op if no window exists.
-Usually unnecessary — worktree-mux auto-cleans orphaned windows on every command.
+The `close` command has been removed. Orphaned tmux windows are cleaned
+up automatically on every command. Users can also close windows directly
+in tmux with `exit` or `prefix + &`.
 
 ### `worktree-mux dash`
 
@@ -119,7 +132,7 @@ Per-worktree info gathered:
 
 ## Name Resolution
 
-Given `worktree-mux open <query>`:
+Given `worktree-mux cd <query>`:
 
 1. **Exact path match:** relative path matches a worktree name (e.g., `feature/auth`)
 2. **Leaf match:** last path component equals `<query>` (e.g., `auth` matches `.worktrees/feature/auth`)
@@ -128,13 +141,13 @@ Given `worktree-mux open <query>`:
 5. **No match:** error with list of available worktrees
 
 ```
-$ worktree-mux open feature/auth       # exact → .worktrees/feature/auth ✓
+$ worktree-mux cd feature/auth       # exact → .worktrees/feature/auth ✓
 
-$ worktree-mux open auth               # leaf → .worktrees/feature/auth ✓
+$ worktree-mux cd auth               # leaf → .worktrees/feature/auth ✓
 
-$ worktree-mux open parser             # substring → .worktrees/fix/parser-bug ✓
+$ worktree-mux cd parser             # substring → .worktrees/fix/parser-bug ✓
 
-$ worktree-mux open re
+$ worktree-mux cd re
 # multiple matches:
 #   feature/auth (contains "re")
 #   refactor-models (contains "re")
@@ -153,7 +166,7 @@ Uses the worktree's leaf name (last path component) as the window name.
 | `.worktrees/refactor-models` | `refactor-models` |
 | `.worktrees/fix/parser-bug` | `parser-bug` |
 
-If two worktrees share the same leaf name, `worktree-mux open` errors and asks
+If two worktrees share the same leaf name, `worktree-mux cd` errors and asks
 the user to rename one worktree directory.
 
 ---
@@ -211,9 +224,10 @@ eval "$(_WORKTREE_MUX_COMPLETE=zsh_source worktree-mux)"
 ### Phase 1: Core ✅
 - [x] Project setup (pyproject.toml, Makefile, ruff, mypy, pytest)
 - [x] Repo root + session name detection
-- [x] `worktree-mux list` — parse `git worktree list --porcelain`, cross-ref with `tmux list-windows`
-- [x] `worktree-mux open <name>` — name resolution + create/switch tmux window
-- [x] `worktree-mux close <name>` — kill tmux window
+- [x] `worktree-mux ls` — parse `git worktree list --porcelain`, cross-ref with `tmux list-windows`
+- [x] `worktree-mux cd <name>` — name resolution + create/switch tmux window
+- [x] `worktree-mux cd` (no arg) — switch to main window at repo root
+- [x] Main window created first on session init
 - [x] Name resolution: exact → leaf → substring → error
 - [x] Leaf collision detection and error
 - [x] Auto-cleanup of orphaned tmux windows
