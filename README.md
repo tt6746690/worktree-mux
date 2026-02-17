@@ -20,7 +20,7 @@ uv tool install worktree-mux
 git clone https://github.com/tt6746690/worktree-mux.git
 uv tool install worktree-mux/
 
-# (Optional) Short alias — add to ~/.zshrc
+# (Optional) Short alias — add to ~/.zshrc 
 alias wm='worktree-mux'
 ```
 
